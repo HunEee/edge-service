@@ -29,6 +29,8 @@ dependencies {
 	
 	// 스프링 클라우드 서킷 브레이커에 대한 의존성
 	implementation 'org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j'
+	// 웹플럭스 임포트
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	
 	
 }

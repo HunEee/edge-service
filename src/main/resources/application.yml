@@ -76,6 +76,6 @@ resilience4j:
       default:                                        # 모든 시간제한에 대한 기본설정
         timeoutDuration: 5s                           # 타임아웃 설정(초)
 
-#logging:
-#  level:
-#    io.github.resilience4j: DEBUG
+logging:
+  level:
+    io.github.resilience4j: DEBUG
