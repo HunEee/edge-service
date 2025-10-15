@@ -1,0 +1,81 @@
+server:
+  port: 9000
+  netty:                    # 네티 서버
+    connection-timeout: 2s  # TCP 연결을 수립하기까지 기다리는 시간
+    idle-timeout: 15s       # 데이터가 전송되지 않는 경우 TCP 연결을 끊기 전에 기다리는 시간 
+  shutdown: graceful        # 우아한 종료 활성화
+
+spring:
+  application:
+    name: edge-service
+  lifecycle:
+    timeout-per-shutdown-phase: 15s     # 우아한 종료 기간을 15초로 설정
+  config:
+    import: "optional:configserver:"
+  cloud:
+    config:
+      uri: http://localhost:8888
+      request-connect-timeout: 5000 # 5s
+      request-read-timeout: 5000 # 5s
+      fail-fast: false # In production, set to true
+      retry:
+        max-attempts: 6
+        initial-interval: 1000 # 1s
+        max-interval: 2000 # 2s
+        multiplier: 1.1
+    gateway:
+      httpclient:     # 네티 HTTP 클라이언트에 대한 설정 속성
+        connect-timeout: 2000 # 2s  연결을 수립하기까지의 타임아웃
+        response-timeout: 5s  # 응답을 받을 때까지의 타임아웃
+        pool:
+          type: elastic       # 연결 풀 유형(elastic, fixed, disabled 중 하나)
+          max-idle-time: 15s  # 통신 채널이 닫히기 전 대기하는 시간
+          max-life-time: 60s  # 통신 채널이 열려 있는 기간
+      default-filters:  # 기본 필터 목록
+        - name: Retry                   # 필터 이름
+          args:
+            retries: 3                  # 최대 3회의 재시도
+            methods: GET                # GET 요청만 재시도
+            series: SERVER_ERROR        # 5XX 오류에 대해서만 재시도 -> 아래 지정한 예외가 발생할 때만 재시도
+            exceptions: java.io.IOException, java.util.concurrent.TimeoutException
+            backoff:                    # 재시도는 firstBackoff*(factor*n) 공식을 사용해 계산
+              firstBackoff: 50ms
+              maxBackOff: 500ms
+              factor: 2
+              basedOnPreviousValue: false
+      routes:          # 라우트 정의 목록
+        - id: catalog-route   # 라우트 ID
+          uri: ${CATALOG_SERVICE_URL:http://localhost:9001}/books   # URI 값은 환경변수로부터 오거나 
+          predicates:                                               # 해당 환경변수가 없는 경우 : 뒤에오는 기본값을 사용 
+            - Path=/books/**        # 일치하는 경로를 술어로 사용
+          filters:
+            - name: CircuitBreaker                        # 필터이름
+              args:
+                name: catalogCircuitBreaker               # 서킷 브레이커 이름
+                fallbackUri: forward:/catalog-fallback    # 회로가 개방 상태일 때 요청을 이 URI로 전달
+        - id: order-route
+          uri: ${ORDER_SERVICE_URL:http://localhost:9002}/orders
+          predicates:
+            - Path=/orders/**
+          filters:
+            - name: CircuitBreaker                        # 서킷 브레이커에 대해 정의한 폴백 없음
+              args:
+                name: orderCircuitBreaker 
+
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:                                        # 모든 서킷 브레이커에 대한 기본설정
+        slidingWindowSize: 20                         # 회로가 폐쇄된 상태일 때 호출의 결과를 기록하는데 사용하는 슬라이딩 윈도의 크기(20회 호출)
+        failureRateThreshold: 50                      # 실패율이 임계값 이상이면 회로는 개방 상태로 바뀜(최초 50% 그 후 개방 -> 반개방 거쳐 50%)
+        waitDurationInOpenState: 15000                # 개방 상태에서 반개방 상태로 가기까지 기다릴 시간(밀리초)
+        permittedNumberOfCallsInHalfOpenState: 5      # 회로가 반개방 상태일 때 허용되는 호출의 수(개방 -> 반개방 후 5개의 호출 허용)
+  timelimiter:
+    configs:
+      default:                                        # 모든 시간제한에 대한 기본설정
+        timeoutDuration: 5s                           # 타임아웃 설정(초)
+
+#logging:
+#  level:
+#    io.github.resilience4j: DEBUG
