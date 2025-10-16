@@ -32,6 +32,9 @@ dependencies {
 	// 웹플럭스 임포트
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	
+	// 스프링 데이터 레디스 리액티브 의존성 추가
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+	
 	
 }
 
