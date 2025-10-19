@@ -31,9 +31,11 @@ spring:
           type: elastic       # 연결 풀 유형(elastic, fixed, disabled 중 하나)
           max-idle-time: 15s  # 통신 채널이 닫히기 전 대기하는 시간
           max-life-time: 60s  # 통신 채널이 열려 있는 기간
-      default-filters:  # 기본 필터 목록           
+      default-filters:  # 기본 필터 목록   
+        - SaveSession   # 요청을 서비스로 전달하기 전에 세션 데이터를 저장
         - name: RequestRateLimiter     # 요청 사용률 제한 설정
-          args:                   
+          args:  
+            key-resolver: "#{@KeyResolver}"                 
             redis-rate-limiter: 
               replenishRate: 10         # 초당 버킷에 떨어지는 토큰의 수
               burstCapacity: 20         # 최대 20개 요청까지 허용
@@ -73,6 +75,11 @@ spring:
       host: localhost       # 레디스 호스트 기본값
       port: 6379            # 레디스 포트 기본값
       timeout: 1s           # 응답을 받기까지 기다리는 시간의 한도
+  session:
+    store-type: redis       # 세션 저장소를 Redis로 지정
+    timeout: 10m            # 세션 유효 시간
+    redis:
+      namespace: polar:edge # Redis 세션 네임스페이스 지정
 
 resilience4j:
   circuitbreaker:
